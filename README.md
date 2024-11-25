@@ -63,7 +63,12 @@ SVDQuant is a post-training quantization technique for 4-bit weights and activat
     cd nunchaku
     git submodule init
     git submodule update
+	# TMPDIR is used to avoid running out of disk space on shared servers
+
 	pip install -e .
+
+	# CFLAGS="-Wno-error" CXXFLAGS="-Wno-error" MAX_JOBS=6 pip install --no-deps --no-build-isolation -e .
+
 	```
 
 ## Usage Example

@@ -27,6 +27,8 @@ class NunchakuFluxModel(nn.Module):
         encoder_hidden_states: torch.Tensor,
         image_rotary_emb: torch.Tensor,
         joint_attention_kwargs=None,
+        controlnet_block_samples=None,
+        controlnet_single_block_samples=None,
     ):
         batch_size = hidden_states.shape[0]
         txt_tokens = encoder_hidden_states.shape[1]
@@ -43,13 +45,27 @@ class NunchakuFluxModel(nn.Module):
         assert image_rotary_emb.shape[1] == 1
         assert image_rotary_emb.shape[2] == batch_size * (txt_tokens + img_tokens)
         # [bs, tokens, head_dim / 2, 1, 2] (sincos)
-        image_rotary_emb = image_rotary_emb.reshape([batch_size, txt_tokens + img_tokens, *image_rotary_emb.shape[3:]])
+        image_rotary_emb = image_rotary_emb.reshape(
+            [batch_size, txt_tokens + img_tokens, *image_rotary_emb.shape[3:]]
+        )
         rotary_emb_txt = image_rotary_emb[:, :txt_tokens, ...]  # .to(self.dtype)
         rotary_emb_img = image_rotary_emb[:, txt_tokens:, ...]  # .to(self.dtype)
         rotary_emb_single = image_rotary_emb  # .to(self.dtype)
 
+        if controlnet_block_samples is None:
+            controlnet_block_samples = []
+        if controlnet_single_block_samples is None:
+            controlnet_single_block_samples = []
+
         hidden_states = self.m.forward(
-            hidden_states, encoder_hidden_states, temb, rotary_emb_img, rotary_emb_txt, rotary_emb_single
+            hidden_states,
+            encoder_hidden_states,
+            temb,
+            rotary_emb_img,
+            rotary_emb_txt,
+            rotary_emb_single,
+            controlnet_block_samples,
+            controlnet_single_block_samples,
         )
 
         hidden_states = hidden_states.to(original_dtype)
@@ -95,7 +111,10 @@ class EmbedND(torch.nn.Module):
         if Version(diffusers.__version__) >= Version("0.31.0"):
             ids = ids[None, ...]
         n_axes = ids.shape[-1]
-        emb = torch.cat([rope(ids[..., i], self.axes_dim[i], self.theta) for i in range(n_axes)], dim=-3)
+        emb = torch.cat(
+            [rope(ids[..., i], self.axes_dim[i], self.theta) for i in range(n_axes)],
+            dim=-3,
+        )
         return emb.unsqueeze(1)
 
 
