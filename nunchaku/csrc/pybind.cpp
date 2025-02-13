@@ -4,10 +4,16 @@
 #include "sana.h"
 #include "ops.h"
 #include "utils.h"
+#include <torch/extension.h>
+#include "awq/gemm_cuda.h"
+#include "awq/gemv_awq.h"
 
 #include <pybind11/pybind11.h>
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("awq_gemm_forward_cuda", &awq_gemm_forward_cuda, "AWQ quantized GEMM kernel.");
+    m.def("gemv_awq", &gemv_awq, "AWQ quantized GEMV kernel.");
+
     py::class_<QuantizedFluxModel>(m, "QuantizedFluxModel")
         .def(py::init<>())
         .def("init", &QuantizedFluxModel::init,
