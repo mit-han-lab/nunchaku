@@ -3,6 +3,7 @@
 #include "interop/torch.h"
 #include "kernels/zgemm/zgemm.h"
 #include "kernels/awq/gemv_awq.h"
+#include "kernels/awq/gemm_cuda.h"
 
 namespace nunchaku::ops {
 
@@ -94,4 +95,26 @@ namespace nunchaku::ops {
 
         return output;
     }
+
+    torch::Tensor gemm_cuda(
+        torch::Tensor _in_feats,
+        torch::Tensor _kernel,
+        torch::Tensor _scaling_factors,
+        torch::Tensor _zeros)
+    {
+        Tensor result = ::awq_gemm_forward_cuda(
+            from_torch(_in_feats.contiguous()),
+            from_torch(_kernel.contiguous()),
+            from_torch(_scaling_factors.contiguous()),
+            from_torch(_zeros.contiguous())
+        );
+
+        torch::Tensor output = to_torch(result);
+        Tensor::synchronizeDevice();
+
+        return output;
+    }
+
+
+    
 };

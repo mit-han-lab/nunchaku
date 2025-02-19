@@ -1,4 +1,5 @@
 // Adated from FasterTransformer, https://github.com/NVIDIA/FasterTransformer/blob/release/v5.3_tag/src/fastertransformer/kernels/decoder_masked_multihead_attention/decoder_masked_multihead_attention_template.hpp
+
 #pragma once
 
 #include <assert.h>
@@ -7,69 +8,207 @@
 #include <type_traits>
 
 #include <cuda_fp16.h>
-
-#ifdef ENABLE_BF16
 #include <cuda_bf16.h>
+
+#define ENABLE_BF16 1
+
+template <typename T>
+struct to_cpp_t;
+template <>
+struct to_cpp_t<at::Half>
+{
+    using type = half;
+};
+
+template <>
+struct to_cpp_t<at::BFloat16>
+{
+    using type = __nv_bfloat16;
+};
+
+template <typename T>
+struct num_elems;
+template <>
+struct num_elems<float>
+{
+    static constexpr int value = 1;
+};
+template <>
+struct num_elems<float2>
+{
+    static constexpr int value = 2;
+};
+template <>
+struct num_elems<float4>
+{
+    static constexpr int value = 4;
+};
+template <>
+struct num_elems<half>
+{
+    static constexpr int value = 1;
+};
+template <>
+struct num_elems<half2>
+{
+    static constexpr int value = 2;
+};
+#ifdef ENABLE_BF16
+template <>
+struct num_elems<__nv_bfloat16>
+{
+    static constexpr int value = 1;
+};
+template <>
+struct num_elems<__nv_bfloat162>
+{
+    static constexpr int value = 2;
+};
 #endif
 
-template<typename T> struct num_elems;
-template <>          struct num_elems<float>           { static constexpr int value = 1; };
-template <>          struct num_elems<float2>          { static constexpr int value = 2; };
-template <>          struct num_elems<float4>          { static constexpr int value = 4; };
-template <>          struct num_elems<half>            { static constexpr int value = 1; };
-template <>          struct num_elems<half2>           { static constexpr int value = 2; };
+template <typename T, int num>
+struct packed_as;
+template <typename T>
+struct packed_as<T, 1>
+{
+    using type = T;
+};
+template <>
+struct packed_as<half, 2>
+{
+    using type = half2;
+};
+template <>
+struct packed_as<float, 2>
+{
+    using type = float2;
+};
+template <>
+struct packed_as<int8_t, 2>
+{
+    using type = int16_t;
+};
+template <>
+struct packed_as<int32_t, 2>
+{
+    using type = int2;
+};
+template <>
+struct packed_as<half2, 1>
+{
+    using type = half;
+};
+template <>
+struct packed_as<float2, 1>
+{
+    using type = float;
+};
 #ifdef ENABLE_BF16
-template <>          struct num_elems<__nv_bfloat16>   { static constexpr int value = 1; };
-template <>          struct num_elems<__nv_bfloat162>  { static constexpr int value = 2; };
+template <>
+struct packed_as<__nv_bfloat16, 2>
+{
+    using type = __nv_bfloat162;
+};
+template <>
+struct packed_as<__nv_bfloat162, 1>
+{
+    using type = __nv_bfloat16;
+};
 #endif
 #ifdef ENABLE_FP8
-template <>          struct num_elems<__nv_fp8_e4m3>   { static constexpr int value = 1; };
-template <>          struct num_elems<__nv_fp8x2_e4m3>  { static constexpr int value = 2; };
+template <>
+struct packed_as<__nv_fp8_e4m3, 2>
+{
+    using type = __nv_fp8x2_e4m3;
+};
+template <>
+struct packed_as<__nv_fp8x2_e4m3, 1>
+{
+    using type = __nv_fp8_e4m3;
+};
+template <>
+struct packed_as<__nv_fp8_e5m2, 2>
+{
+    using type = __nv_fp8x2_e5m2;
+};
+template <>
+struct packed_as<__nv_fp8x2_e5m2, 1>
+{
+    using type = __nv_fp8_e5m2;
+};
 #endif
 
-template<typename T, int num> struct packed_as;
-template<typename T>          struct packed_as<T, 1>              { using type = T; };
-template<>                    struct packed_as<half,  2>          { using type = half2; };
-template<>                    struct packed_as<float,  2>         { using type = float2; };
-template<>                    struct packed_as<int8_t, 2>         { using type = int16_t; };
-template<>                    struct packed_as<int32_t, 2>        { using type = int2; };
-template<>                    struct packed_as<half2, 1>          { using type = half; };
-template<>                    struct packed_as<float2, 1>         { using type = float; };
+template <typename f16_t>
+__device__ __forceinline__
+    packed_as<f16_t, 2>::type
+    f162f162(f16_t x);
+
+template <>
+__device__ __forceinline__
+    packed_as<half, 2>::type
+    f162f162<half>(half x)
+{
+  return __half2half2(x);
+}
+
 #ifdef ENABLE_BF16
-template<> struct packed_as<__nv_bfloat16,  2> { using type = __nv_bfloat162; };
-template<> struct packed_as<__nv_bfloat162, 1> { using type = __nv_bfloat16;  };
-#endif
-#ifdef ENABLE_FP8
-template<> struct packed_as<__nv_fp8_e4m3,  2> { using type = __nv_fp8x2_e4m3; };
-template<> struct packed_as<__nv_fp8x2_e4m3, 1> { using type = __nv_fp8_e4m3;  };
-template<> struct packed_as<__nv_fp8_e5m2,  2> { using type = __nv_fp8x2_e5m2; };
-template<> struct packed_as<__nv_fp8x2_e5m2, 1> { using type = __nv_fp8_e5m2;  };
-#endif
+template <>
+__device__ __forceinline__
+    packed_as<__nv_bfloat16, 2>::type
+    f162f162<__nv_bfloat16>(__nv_bfloat16 x)
+{
+  return __bfloat162bfloat162(x);
+}
+# endif
+
+template <typename T>
+__device__ __forceinline__
+    float2
+    f1622float2(T val);
+
+template <>
+__device__ __forceinline__
+    float2
+    f1622float2<half2>(half2 val)
+{
+  return __half22float2(val);
+}
+
+#ifdef ENABLE_BF16
+template <>
+__device__ __forceinline__
+    float2
+    f1622float2<__nv_bfloat162>(__nv_bfloat162 val)
+{
+  return __bfloat1622float2(val);
+}
+# endif
 
 inline __device__ float2 operator*(float2 a, float2 b) { return make_float2(a.x * b.x, a.y * b.y); }
 inline __device__ float2 operator+(float2 a, float2 b) { return make_float2(a.x + b.x, a.y + b.y); }
 inline __device__ float2 operator-(float2 a, float2 b) { return make_float2(a.x - b.x, a.y - b.y); }
 
-inline __device__ float2 operator*(float2 a, float  b) { return make_float2(a.x * b, a.y * b); }
-inline __device__ float2 operator+(float2 a, float  b) { return make_float2(a.x + b, a.y + b); }
-inline __device__ float2 operator-(float2 a, float  b) { return make_float2(a.x - b, a.y - b); }
+inline __device__ float2 operator*(float2 a, float b) { return make_float2(a.x * b, a.y * b); }
+inline __device__ float2 operator+(float2 a, float b) { return make_float2(a.x + b, a.y + b); }
+inline __device__ float2 operator-(float2 a, float b) { return make_float2(a.x - b, a.y - b); }
 
 static inline __device__ int8_t float_to_int8_rn(float x)
 {
     uint32_t dst;
     asm volatile("cvt.rni.sat.s8.f32 %0, %1;" : "=r"(dst) : "f"(x));
-    return reinterpret_cast<const int8_t&>(dst);
+    return reinterpret_cast<const int8_t &>(dst);
 }
 
-template<typename T>
-inline __device__ T ldg(const T* val) {
+template <typename T>
+inline __device__ T ldg(const T *val)
+{
     return __ldg(val);
 }
 
 #if ENABLE_BF16
-#define bf1622float2 __bfloat1622float2
+
 #define float22bf162 __float22bfloat162_rn
-#define bf162bf162 __bfloat162bfloat162
+
 inline __device__ int16_t bf1622int16(__nv_bfloat162 val)
 {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800
@@ -104,8 +243,9 @@ inline __device__ int16_t bf1622int16(__nv_bfloat162 val)
 #endif
 
 #if ENABLE_BF16
-template<>
-inline __device__ __nv_bfloat162 ldg(const __nv_bfloat162* val) {
+template <>
+inline __device__ __nv_bfloat162 ldg(const __nv_bfloat162 *val)
+{
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800
     return val[0];
 #else
@@ -113,8 +253,9 @@ inline __device__ __nv_bfloat162 ldg(const __nv_bfloat162* val) {
 #endif
 }
 
-template<>
-inline __device__ __nv_bfloat16 ldg(const __nv_bfloat16* val) {
+template <>
+inline __device__ __nv_bfloat16 ldg(const __nv_bfloat16 *val)
+{
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800
     return val[0];
 #else
@@ -280,7 +421,7 @@ __device__ inline float cuda_cast<float, __nv_bfloat16>(__nv_bfloat16 val)
 template <>
 __device__ inline float2 cuda_cast<float2, __nv_bfloat162>(__nv_bfloat162 val)
 {
-    return bf1622float2(val);
+    return __bfloat1622float2(val);
 }
 
 template <>
@@ -310,7 +451,7 @@ __device__ inline __nv_bfloat16 cuda_cast<__nv_bfloat16, half>(half val)
 template <>
 __device__ inline __nv_bfloat162 cuda_cast<__nv_bfloat162, __nv_bfloat16>(__nv_bfloat16 val)
 {
-    return bf162bf162(val);
+    return __bfloat162bfloat162(val);
 }
 
 template <>
@@ -348,29 +489,6 @@ __device__ inline __nv_bfloat162 cuda_cast<__nv_bfloat162, half2>(half2 val)
 }
 
 #endif // ENABLE BF16
-
-template <typename f16_t>
-__device__ __forceinline__
-    packed_as<f16_t, 2>::type
-    f162f162(f16_t x);
-
-template <>
-__device__ __forceinline__
-    packed_as<half, 2>::type
-    f162f162<half>(half x)
-{
-  return __half2half2(x);
-}
-
-#ifdef ENABLE_BF16
-template <>
-__device__ __forceinline__
-    packed_as<__nv_bfloat16, 2>::type
-    f162f162<__nv_bfloat16>(__nv_bfloat16 x)
-{
-  return __bfloat162bfloat162(x);
-}
-# endif
 
 template <typename To, typename Ti>
 __device__ inline To cuda_sum(Ti val)
@@ -467,4 +585,4 @@ __device__ inline __nv_bfloat162 cuda_abs(__nv_bfloat162 val)
 }
 #endif
 
-#endif // ENABLE_FP16
+#endif
