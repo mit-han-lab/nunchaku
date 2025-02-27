@@ -217,7 +217,7 @@ class Tensor {
 public:
     enum ScalarType {
         INVALID_SCALAR_TYPE,
-        INT8, INT32, INT64,
+        INT8, INT16, INT32, INT64,
         FP16, FP32, BF16,
         FP8_E4M3, FP8_E5M2,
     };
@@ -541,6 +541,7 @@ public:
 
 inline const std::map<Tensor::ScalarType, size_t> Tensor::scalarSize = {
     {INT8, 1},
+    {INT16, 2},
     {INT32, 4},
     {INT64, 8},
     {FP16, 2},

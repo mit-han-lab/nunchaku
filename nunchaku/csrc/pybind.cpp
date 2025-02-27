@@ -4,6 +4,9 @@
 #include "sana.h"
 #include "ops.h"
 #include "utils.h"
+#include <torch/extension.h>
+#include "awq/gemm_cuda.h"
+#include "awq/gemv_awq.h"
 
 #include <pybind11/pybind11.h>
 
@@ -72,7 +75,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     ;
 
     m.def_submodule("ops")
-        .def("gemm_w4a4", nunchaku::ops::gemm_w4a4)
+        .def("gemm_cuda", nunchaku::ops::gemm_cuda)
         .def("gemv_awq", nunchaku::ops::gemv_awq)
     ;
 

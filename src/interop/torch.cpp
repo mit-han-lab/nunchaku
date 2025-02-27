@@ -28,6 +28,7 @@ Tensor from_torch(at::Tensor input) {
         { at::ScalarType::Float, Tensor::FP32 },
         { at::ScalarType::Half, Tensor::FP16 },
         { at::ScalarType::BFloat16, Tensor::BF16 },
+        { at::ScalarType::Short,    Tensor::INT16 },
         { at::ScalarType::Float8_e4m3fn, Tensor::FP8_E4M3 },
         { at::ScalarType::Float8_e5m2, Tensor::FP8_E5M2 },
     };
@@ -55,6 +56,7 @@ at::Tensor to_torch(Tensor input) {
         { Tensor::FP32, at::ScalarType::Float  },
         { Tensor::FP16, at::ScalarType::Half  },
         { Tensor::BF16, at::ScalarType::BFloat16  },
+        { Tensor::INT16,  at::ScalarType::Short   },
         { Tensor::FP8_E4M3, at::ScalarType::Float8_e4m3fn },
         { Tensor::FP8_E5M2, at::ScalarType::Float8_e5m2 },
     };

@@ -1,7 +1,7 @@
 import os
 
 import torch
-from deepcompressor.backend.tinychat.linear import W4Linear
+from nunchaku.models.linear import W4Linear
 from huggingface_hub import constants, hf_hub_download
 from safetensors.torch import load_file
 from torch import nn
