@@ -1,4 +1,4 @@
-# This cachaing functionality is largely brought from https://github.com/chengzeyi/ParaAttention/src/para_attn/first_block_cache/
+# This caching functionality is largely brought from https://github.com/chengzeyi/ParaAttention/src/para_attn/first_block_cache/
 
 import contextlib
 import dataclasses
@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import DefaultDict, Dict
 
 import torch
+from torch import nn
 
 
 @dataclasses.dataclass
@@ -34,7 +35,6 @@ class CacheContext:
         self.buffers.clear()
 
 
-
 @torch.compiler.disable
 def get_buffer(name):
     cache_context = get_current_cache_context()
@@ -47,7 +47,6 @@ def set_buffer(name, buffer):
     cache_context = get_current_cache_context()
     assert cache_context is not None, "cache_context must be set before"
     cache_context.set_buffer(name, buffer)
-
 
 
 _current_cache_context = None
@@ -79,8 +78,11 @@ def are_two_tensors_similar(t1, t2, *, threshold, parallelized=False):
     diff = mean_diff / mean_t1
     return diff.item() < threshold
 
+
 @torch.compiler.disable
-def apply_prev_hidden_states_residual(hidden_states, encoder_hidden_states):
+def apply_prev_hidden_states_residual(
+    hidden_states: torch.Tensor, encoder_hidden_states: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
     hidden_states_residual = get_buffer("hidden_states_residual")
     assert hidden_states_residual is not None, "hidden_states_residual must be set before"
     hidden_states = hidden_states_residual + hidden_states
@@ -94,6 +96,7 @@ def apply_prev_hidden_states_residual(hidden_states, encoder_hidden_states):
 
     return hidden_states, encoder_hidden_states
 
+
 @torch.compiler.disable
 def get_can_use_cache(first_hidden_states_residual, threshold, parallelized=False):
     prev_first_hidden_states_residual = get_buffer("first_hidden_states_residual")
@@ -105,7 +108,8 @@ def get_can_use_cache(first_hidden_states_residual, threshold, parallelized=Fals
     )
     return can_use_cache
 
-class CachedTransformerBlocks(torch.nn.Module):
+
+class CachedTransformerBlocks(nn.Module):
     def __init__(
         self,
         *,
@@ -113,6 +117,7 @@ class CachedTransformerBlocks(torch.nn.Module):
         residual_diff_threshold,
         return_hidden_states_first=True,
         return_hidden_states_only=False,
+        verbose: bool = False,
     ):
         super().__init__()
         self.transformer = transformer
@@ -121,6 +126,7 @@ class CachedTransformerBlocks(torch.nn.Module):
         self.residual_diff_threshold = residual_diff_threshold
         self.return_hidden_states_first = return_hidden_states_first
         self.return_hidden_states_only = return_hidden_states_only
+        self.verbose = verbose
 
     def forward(self, hidden_states, encoder_hidden_states, *args, **kwargs):
         batch_size = hidden_states.shape[0]
@@ -130,7 +136,8 @@ class CachedTransformerBlocks(torch.nn.Module):
 
             first_transformer_block = self.transformer_blocks[0]
             encoder_hidden_states, hidden_states = first_transformer_block(
-                hidden_states=hidden_states, encoder_hidden_states=encoder_hidden_states, *args, **kwargs)
+                hidden_states=hidden_states, encoder_hidden_states=encoder_hidden_states, *args, **kwargs
+            )
 
             return (
                 hidden_states
@@ -145,7 +152,8 @@ class CachedTransformerBlocks(torch.nn.Module):
         original_hidden_states = hidden_states
         first_transformer_block = self.transformer_blocks[0]
         encoder_hidden_states, hidden_states = first_transformer_block.forward_layer_at(
-                0, hidden_states, encoder_hidden_states, *args, **kwargs)
+            0, hidden_states, encoder_hidden_states, *args, **kwargs
+        )
 
         first_hidden_states_residual = hidden_states - original_hidden_states
         del original_hidden_states
@@ -159,12 +167,14 @@ class CachedTransformerBlocks(torch.nn.Module):
         torch._dynamo.graph_break()
         if can_use_cache:
             del first_hidden_states_residual
-            print("Cache hit!!!")
+            if self.verbose:
+                print("Cache hit!!!")
             hidden_states, encoder_hidden_states = apply_prev_hidden_states_residual(
                 hidden_states, encoder_hidden_states
             )
         else:
-            print("Cache miss!!!")
+            if self.verbose:
+                print("Cache miss!!!")
             set_buffer("first_hidden_states_residual", first_hidden_states_residual)
             del first_hidden_states_residual
             (
@@ -192,9 +202,12 @@ class CachedTransformerBlocks(torch.nn.Module):
         original_hidden_states = hidden_states
         original_encoder_hidden_states = encoder_hidden_states
         encoder_hidden_states, hidden_states = first_transformer_block.forward(
-                hidden_states=hidden_states,
-                encoder_hidden_states=encoder_hidden_states,
-                skip_first_layer=True, *args, **kwargs)
+            hidden_states=hidden_states,
+            encoder_hidden_states=encoder_hidden_states,
+            skip_first_layer=True,
+            *args,
+            **kwargs,
+        )
 
         hidden_states = hidden_states.contiguous()
         encoder_hidden_states = encoder_hidden_states.contiguous()

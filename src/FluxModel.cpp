@@ -485,16 +485,16 @@ std::tuple<Tensor, Tensor> JointTransformerBlock::forward(Tensor hidden_states, 
         } else {
             raw_attn_output_split = Tensor::allocate({batch_size, num_tokens_img, num_heads * dim_head}, raw_attn_output.scalar_type(), raw_attn_output.device());
             checkCUDA(cudaMemcpy2DAsync(
-                raw_attn_output_split.data_ptr(), 
+                raw_attn_output_split.data_ptr(),
                 num_tokens_img * num_heads * dim_head * raw_attn_output_split.scalar_size(),
                 raw_attn_output.data_ptr(),
                 (num_tokens_img + num_tokens_context) * num_heads * dim_head * raw_attn_output.scalar_size(),
                 num_tokens_img * num_heads * dim_head * raw_attn_output_split.scalar_size(),
                 batch_size,
-                cudaMemcpyDeviceToDevice, 
+                cudaMemcpyDeviceToDevice,
                 stream));
         }
-        
+
 
         spdlog::debug("raw_attn_output_split={}", raw_attn_output_split.shape.str());
         debug("img.raw_attn_output_split", raw_attn_output_split);
@@ -550,16 +550,16 @@ std::tuple<Tensor, Tensor> JointTransformerBlock::forward(Tensor hidden_states, 
         } else {
             raw_attn_output_split = Tensor::allocate({batch_size, num_tokens_context, num_heads * dim_head}, raw_attn_output.scalar_type(), raw_attn_output.device());
             checkCUDA(cudaMemcpy2DAsync(
-                raw_attn_output_split.data_ptr(), 
+                raw_attn_output_split.data_ptr(),
                 num_tokens_context * num_heads * dim_head * raw_attn_output_split.scalar_size(),
                 raw_attn_output.data_ptr<char>() + num_tokens_img * num_heads * dim_head * raw_attn_output_split.scalar_size(),
                 (num_tokens_img + num_tokens_context) * num_heads * dim_head * raw_attn_output.scalar_size(),
                 num_tokens_context * num_heads * dim_head * raw_attn_output_split.scalar_size(),
                 batch_size,
-                cudaMemcpyDeviceToDevice, 
+                cudaMemcpyDeviceToDevice,
                 stream));
         }
-        
+
 
         spdlog::debug("raw_attn_output_split={}", raw_attn_output_split.shape.str());
         debug("context.raw_attn_output_split", raw_attn_output_split);
@@ -585,7 +585,7 @@ std::tuple<Tensor, Tensor> JointTransformerBlock::forward(Tensor hidden_states, 
 #else
         auto norm_hidden_states = encoder_hidden_states;
 #endif
-        
+
 
         // Tensor ff_output = mlp_context_fc2.forward(GELU::forward(mlp_context_fc1.forward(norm_hidden_states)));
         // Tensor ff_output = mlp_context_fc2.forward_quant(quant_static_fuse_gelu(mlp_context_fc1.forward(norm_hidden_states), 1.0));
