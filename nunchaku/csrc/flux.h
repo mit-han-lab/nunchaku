@@ -10,10 +10,13 @@
 class QuantizedFluxModel : public ModuleWrapper<FluxModel> { // : public torch::CustomClassHolder {
 public:
     void init(bool use_fp4, bool offload, bool bf16, int8_t deviceId) {
-        spdlog::info("Initializing QuantizedFluxModel");
+        spdlog::info("Initializing QuantizedFluxModel on device {}", deviceId);
         if (offload) {
             spdlog::info("Layer offloading enabled");
         }
+        ModuleWrapper::init(deviceId);
+
+        CUDADeviceContext ctx(this->deviceId);
         net = std::make_unique<FluxModel>(use_fp4, offload, bf16 ? Tensor::BF16 : Tensor::FP16, Device::cuda((int)deviceId));
     }
 
@@ -27,6 +30,7 @@ public:
         bool skip_first_layer = false)
     {
         checkModel();
+        CUDADeviceContext ctx(deviceId);
 
         spdlog::debug("QuantizedFluxModel forward");
 
@@ -61,6 +65,8 @@ public:
         torch::Tensor rotary_emb_img,
         torch::Tensor rotary_emb_context)
     {
+        CUDADeviceContext ctx(deviceId);
+
         spdlog::debug("QuantizedFluxModel forward_layer {}", idx);
 
         hidden_states = hidden_states.contiguous();
@@ -91,6 +97,8 @@ public:
         torch::Tensor temb,
         torch::Tensor rotary_emb_single)
     {
+        CUDADeviceContext ctx(deviceId);
+
         spdlog::debug("QuantizedFluxModel forward_single_layer {}", idx);
 
         hidden_states = hidden_states.contiguous();
@@ -116,6 +124,8 @@ public:
         if (skipRanks % 16 != 0) {
             throw std::invalid_argument("skipRanks must be multiples of 16");
         }
+
+        CUDADeviceContext ctx(deviceId);
 
         spdlog::info("Set lora scale to {} (skip {} ranks)", scale, skipRanks);
 

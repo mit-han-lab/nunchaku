@@ -9,7 +9,12 @@
 template<typename M>
 class ModuleWrapper {
 public:
+    void init(int deviceId) {
+        this->deviceId = deviceId;
+    }
     void reset() {
+        CUDADeviceContext ctx(this->deviceId);
+
         debugContext.reset();
         net.reset();
         Tensor::synchronizeDevice();
@@ -20,10 +25,24 @@ public:
 
     void load(std::string path, bool partial = false) {
         checkModel();
+        CUDADeviceContext ctx(this->deviceId);
 
         spdlog::info("{} weights from {}", partial ? "Loading partial" : "Loading", path);
         
         std::shared_ptr<SafeTensors> provider = std::make_shared<SafeTensors>(path);
+        net->loadParams(*provider, partial);
+        Tensor::synchronizeDevice();
+
+        spdlog::info("Done.");
+    }
+
+    void loadDict(std::map<std::string, torch::Tensor> dict, bool partial = false) {
+        checkModel();
+        CUDADeviceContext ctx(this->deviceId);
+
+        spdlog::info("{} weights from pytorch", partial ? "Loading partial" : "Loading");
+        
+        std::shared_ptr<TensorsProviderTorch> provider = std::make_shared<TensorsProviderTorch>(std::move(dict));
         net->loadParams(*provider, partial);
         Tensor::synchronizeDevice();
 
@@ -38,6 +57,8 @@ public:
     }
 
     auto getDebugResults() {
+        CUDADeviceContext ctx(this->deviceId);
+
         std::map<std::string, torch::Tensor> result;
 
         if (debugContext) {
@@ -59,4 +80,6 @@ protected:
 protected:
     std::unique_ptr<M> net;
     std::unique_ptr<DebugContext> debugContext;
+
+    int deviceId = -1;
 };

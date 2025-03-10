@@ -22,6 +22,7 @@ Tensor from_torch(at::Tensor input) {
     }
 
     static const std::map<at::ScalarType, Tensor::ScalarType> mapType = {
+        { at::ScalarType::Char, Tensor::INT8 },
         { at::ScalarType::Byte, Tensor::INT8 },
         { at::ScalarType::Int, Tensor::INT32 },
         { at::ScalarType::Long, Tensor::INT64 },
@@ -36,7 +37,7 @@ Tensor from_torch(at::Tensor input) {
     result.scalarType = mapType.at(input.scalar_type());
     result.buffer = std::make_shared<BufferTorchTensor>(std::move(input));
 
-    // Tensor::lockBuffer(result.buffer, getCurrentCUDAStream());
+    Tensor::lockBuffer(result.buffer, getCurrentCUDAStream());
 
     return result;
 }

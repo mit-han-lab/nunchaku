@@ -107,16 +107,97 @@ struct CUDAEventWrapper {
     }
 };
 
-inline cudaDeviceProp *getCurrentDeviceProperties() {
-    static thread_local cudaDeviceProp prop;
-    static thread_local bool propAvailable = false;
-    if (!propAvailable) {
-        int device;
-        checkCUDA(cudaGetDevice(&device));
-        checkCUDA(cudaGetDeviceProperties(&prop, device));
-        propAvailable = true;
+
+/**
+ * 1. hold one when entered from external code (set `device` to -1 to avoid device change)
+ * 2. hold one when switching device
+ * 3. hold one with `disableCache` when calling external code that may change the device
+ */
+class CUDADeviceContext {
+public:
+    CUDADeviceContext(int device = -1, bool disableCache = false) : disableCache(disableCache) {
+        if (cacheDisabled()) {
+            // no previous context => we might entered from external code, reset cache
+            // previous context is reset on => external code may be executed, reset
+            currentDeviceCache = -1;
+        }
+        
+        ctxs.push(this);
+        lastDevice = getDevice();
+        if (device >= 0) {
+            setDevice(device);
+        }
+
+        if (disableCache) {
+            // we are about to call external code, reset cache
+            currentDeviceCache = -1;
+        }
     }
-    return &prop;
+    CUDADeviceContext(const CUDADeviceContext &) = delete;
+    CUDADeviceContext(CUDADeviceContext &&) = delete;
+
+    ~CUDADeviceContext() {
+        if (disableCache) {
+            // retured from external code, cache is not reliable, reset
+            currentDeviceCache = -1;
+        }
+
+        setDevice(lastDevice);
+        assert(ctxs.top() == this);
+        ctxs.pop();
+
+        if (cacheDisabled()) {
+            // ctxs.empty() => we are about to return to external code, reset cache
+            // otherwise => we are a nested context in a previous context with reset on, we might continue to execute external code, reset
+            currentDeviceCache = -1;
+        }
+    }
+
+    const bool disableCache;
+    int lastDevice;
+
+
+public:
+    static int getDevice() {
+        int idx = -1;
+        if (cacheDisabled() || currentDeviceCache < 0) {
+            checkCUDA(cudaGetDevice(&idx));
+        } else {
+            idx = currentDeviceCache;
+        }
+        currentDeviceCache = cacheDisabled() ? -1 : idx;
+        return idx;
+    }
+private:
+    static void setDevice(int idx) {
+        // TODO: deal with stream when switching device
+        assert(idx >= 0);
+        if (!cacheDisabled() && currentDeviceCache == idx) {
+            return;
+        }
+        checkCUDA(cudaSetDevice(idx));
+        currentDeviceCache = cacheDisabled() ? -1 : idx;
+    }
+
+private:
+    static inline thread_local std::stack<CUDADeviceContext *> ctxs;
+    static inline thread_local int currentDeviceCache = -1;
+
+    static bool cacheDisabled() {
+        return ctxs.empty() || ctxs.top()->disableCache;
+    }
+};
+
+inline cudaDeviceProp *getCurrentDeviceProperties() {
+    static thread_local std::map<int, cudaDeviceProp> props;
+
+    int deviceId = CUDADeviceContext::getDevice();
+    if (!props.contains(deviceId)) {
+        cudaDeviceProp prop;
+        checkCUDA(cudaGetDeviceProperties(&prop, deviceId));
+        props[deviceId] = prop;
+    }
+    return &props.at(deviceId);
 }
 
 template<typename T>

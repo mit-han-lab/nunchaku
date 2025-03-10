@@ -22,6 +22,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             py::arg("path"),
             py::arg("partial") = false
         )
+        .def("loadDict", &QuantizedFluxModel::loadDict, 
+            py::arg("dict"),
+            py::arg("partial") = false
+        )
         .def("forward", &QuantizedFluxModel::forward)
         .def("forward_layer", &QuantizedFluxModel::forward_layer)
         .def("forward_single_layer", &QuantizedFluxModel::forward_single_layer)
@@ -43,6 +47,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("reset", &QuantizedSanaModel::reset)
         .def("load", &QuantizedSanaModel::load, 
             py::arg("path"),
+            py::arg("partial") = false
+        )
+        .def("loadDict", &QuantizedSanaModel::loadDict, 
+            py::arg("dict"),
             py::arg("partial") = false
         )
         .def("forward", &QuantizedSanaModel::forward)

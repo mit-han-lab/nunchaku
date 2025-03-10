@@ -81,7 +81,8 @@ public:
     BufferCUDA(size_t size) {
         this->size = size;
         this->device.type = Device::CUDA;
-        checkCUDA(cudaGetDevice(&this->device.idx));
+        // checkCUDA(cudaGetDevice(&this->device.idx));
+        this->device.idx = CUDADeviceContext::getDevice();
         if (size == 0) {
             this->ptr = nullptr;
         }
@@ -418,6 +419,7 @@ public:
             result.buffer = std::make_shared<BufferMalloc>(shape.size() * scalarSize.at(scalarType));
         } else if (device.type == Device::CUDA) {
             // TODO: cross device allocate
+            CUDADeviceContext ctx(device.idx);
             result.buffer = std::make_shared<BufferCUDA>(shape.size() * scalarSize.at(scalarType));
         } else {
             assert(false);
@@ -429,6 +431,7 @@ public:
             if (device.type == Device::CPU) {
                 memset(result.buffer->getPtr(), 0xCC, result.buffer->getSize());
             } else if (device.type == Device::CUDA) {
+                CUDADeviceContext ctx(device.idx);
                 checkCUDA(cudaMemsetAsync(result.buffer->getPtr(), 0xCC, result.buffer->getSize(), getCurrentCUDAStream()));
             }
         }
