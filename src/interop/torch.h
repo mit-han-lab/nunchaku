@@ -15,7 +15,7 @@ public:
     }
     virtual bool isAsyncBuffer() override { 
         // TODO: figure out how torch manages memory
-        return true;
+        return this->device.type == Device::CUDA;
     }
 private:
     at::Tensor tensor;
@@ -31,3 +31,21 @@ public:
 
 Tensor from_torch(at::Tensor input);
 at::Tensor to_torch(Tensor input);
+
+class TensorsProviderTorch : public TensorsProvider {
+public:
+    TensorsProviderTorch(std::map<std::string, at::Tensor> dict) : storage(std::move(dict)) {}
+
+    virtual bool contains(const std::string &key) const override {
+        return storage.contains(key);
+    }
+    virtual Tensor getTensor(const std::string &key) override {
+        if (!storage.contains(key)) {
+            return Tensor{};
+        }
+        return from_torch(storage.at(key));
+    }
+
+private:
+    std::map<std::string, at::Tensor> storage;
+};
