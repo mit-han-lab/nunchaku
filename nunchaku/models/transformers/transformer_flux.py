@@ -59,7 +59,13 @@ class NunchakuFluxTransformerBlocks(nn.Module):
         rotary_emb_single = pad_tensor(rotary_emb_single, 256, 1)
 
         hidden_states = self.m.forward(
-            hidden_states, encoder_hidden_states, temb, rotary_emb_img, rotary_emb_txt, rotary_emb_single, skip_first_layer
+            hidden_states,
+            encoder_hidden_states,
+            temb,
+            rotary_emb_img,
+            rotary_emb_txt,
+            rotary_emb_single,
+            skip_first_layer,
         )
 
         hidden_states = hidden_states.to(original_dtype).to(original_device)
@@ -103,7 +109,8 @@ class NunchakuFluxTransformerBlocks(nn.Module):
         rotary_emb_img = pad_tensor(rotary_emb_img, 256, 1)
 
         hidden_states, encoder_hidden_states = self.m.forward_layer(
-                0, hidden_states, encoder_hidden_states, temb, rotary_emb_img, rotary_emb_txt)
+            idx, hidden_states, encoder_hidden_states, temb, rotary_emb_img, rotary_emb_txt
+        )
 
         hidden_states = hidden_states.to(original_dtype).to(original_device)
         encoder_hidden_states = encoder_hidden_states.to(original_dtype).to(original_device)
