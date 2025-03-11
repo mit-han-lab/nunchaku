@@ -1,4 +1,5 @@
 import os
+
 import comfy.model_patcher
 import folder_paths
 import torch
@@ -7,7 +8,9 @@ from comfy.supported_models import Flux, FluxSchnell
 from diffusers import FluxTransformer2DModel
 from einops import rearrange, repeat
 from torch import nn
+
 from nunchaku import NunchakuFluxTransformer2dModel
+
 
 class ComfyUIFluxForwardWrapper(nn.Module):
     def __init__(self, model: NunchakuFluxTransformer2dModel, config):
@@ -59,18 +62,10 @@ class ComfyUIFluxForwardWrapper(nn.Module):
         out = rearrange(out, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=2, pw=2)[:, :, :h, :w]
         return out
 
+
 class SVDQuantFluxDiTLoader:
     @classmethod
     def INPUT_TYPES(s):
-        model_paths = [
-            "mit-han-lab/svdq-int4-flux.1-schnell",
-            "mit-han-lab/svdq-int4-flux.1-dev",
-            "mit-han-lab/svdq-fp4-flux.1-schnell",
-            "mit-han-lab/svdq-fp4-flux.1-dev",
-            "mit-han-lab/svdq-int4-flux.1-canny-dev",
-            "mit-han-lab/svdq-int4-flux.1-depth-dev",
-            "mit-han-lab/svdq-int4-flux.1-fill-dev",
-        ]
         prefixes = folder_paths.folder_names_and_paths["diffusion_models"][0]
         local_folders = set()
         for prefix in prefixes:
@@ -82,8 +77,7 @@ class SVDQuantFluxDiTLoader:
                     if not folder.startswith(".") and os.path.isdir(os.path.join(prefix, folder))
                 ]
                 local_folders.update(local_folders_)
-        local_folders = sorted(list(local_folders))
-        model_paths = local_folders + model_paths
+        model_paths = sorted(list(local_folders))
         ngpus = torch.cuda.device_count()
         return {
             "required": {
@@ -126,35 +120,37 @@ class SVDQuantFluxDiTLoader:
                 model_path = os.path.join(prefix, model_path)
                 break
 
-        # 验证 device_id 是否有效
+        # Check if the device_id is valid
         if device_id >= torch.cuda.device_count():
             raise ValueError(f"Invalid device_id: {device_id}. Only {torch.cuda.device_count()} GPUs available.")
 
-        # 获取 ComfyUI 指定 CUDA 设备的显存信息
+        # Get the GPU properties
         gpu_properties = torch.cuda.get_device_properties(device_id)
-        gpu_memory = gpu_properties.total_memory / (1024 ** 2)  # 转换为 MB
+        gpu_memory = gpu_properties.total_memory / (1024**2)  # Convert to MB
         gpu_name = gpu_properties.name
-        print(f"GPU {device_id} ({gpu_name}) 显存: {gpu_memory} MB")
+        print(f"GPU {device_id} ({gpu_name}) Memory: {gpu_memory} MB")
 
-        # 确定 CPU offload 是否启用
+        # Check if CPU offload needs to be enabled
         if cpu_offload == "auto":
-            if gpu_memory < 14336:  # 14GB 阈值
+            if gpu_memory < 14336:  # 14GB threshold
                 cpu_offload_enabled = True
-                print("因显存小于14GB，启用 CPU offload")
+                print("VRAM < 14GiB，enable CPU offload")
             else:
                 cpu_offload_enabled = False
-                print("显存大于14GB，不启用 CPU offload")
+                print("VRAM > 14GiB，disable CPU offload")
         elif cpu_offload == "enable":
             cpu_offload_enabled = True
-            print("用户启用 CPU offload")
+            print("Enable CPU offload")
         else:
             cpu_offload_enabled = False
-            print("用户禁用 CPU offload")
+            print("Disable CPU offload")
 
-        # 清理 GPU 缓存
-#        torch.cuda.empty_cache()
-
-        transformer = NunchakuFluxTransformer2dModel.from_pretrained(model_path, offload=cpu_offload_enabled)
+        capability = torch.cuda.get_device_capability(0)
+        sm = f"{capability[0]}{capability[1]}"
+        precision = "fp4" if sm == "120" else "int4"
+        transformer = NunchakuFluxTransformer2dModel.from_pretrained(
+            model_path, precision=precision, offload=cpu_offload_enabled
+        )
         transformer = transformer.to(device)
         dit_config = {
             "image_model": "flux",

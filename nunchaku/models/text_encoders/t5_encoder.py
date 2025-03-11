@@ -60,12 +60,12 @@ def quantize_t5_encoder(
         if isinstance(module, nn.Linear):
             if f"{name}.qweight" in state_dict and name.endswith(qlayer_suffix):
                 print(f"Switching {name} to W4Linear")
-                qmodule = W4Linear.from_linear(module, group_size=128, init_only=True)
-                qmodule.qweight.data.copy_(state_dict[f"{name}.qweight"])
-                if qmodule.bias is not None:
-                    qmodule.bias.data.copy_(state_dict[f"{name}.bias"])
-                qmodule.scales.data.copy_(state_dict[f"{name}.scales"])
-                qmodule.scaled_zeros.data.copy_(state_dict[f"{name}.scaled_zeros"])
+                qmodule = W4Linear.from_linear(module, group_size=128, init_only=False)
+                # qmodule.qweight.data.copy_(state_dict[f"{name}.qweight"])
+                # if qmodule.bias is not None:
+                #     qmodule.bias.data.copy_(state_dict[f"{name}.bias"])
+                # qmodule.scales.data.copy_(state_dict[f"{name}.scales"])
+                # qmodule.scaled_zeros.data.copy_(state_dict[f"{name}.scaled_zeros"])
 
                 # modeling_t5.py: T5DenseGatedActDense needs dtype of weight
                 qmodule.weight = torch.empty([1], dtype=module.weight.dtype, device=module.weight.device)

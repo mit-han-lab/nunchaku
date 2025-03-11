@@ -1,10 +1,13 @@
+import logging
 import os
-import tempfile
 
 import folder_paths
 from safetensors.torch import save_file
 
 from nunchaku.lora.flux import comfyui2diffusers, convert_to_nunchaku_flux_lowrank_dict, detect_format, xlab2diffusers
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("SVDQuantFluxLoraLoader")
 
 
 class SVDQuantFluxLoraLoader:
@@ -13,31 +16,20 @@ class SVDQuantFluxLoraLoader:
 
     @classmethod
     def INPUT_TYPES(s):
-        lora_name_list = [
-            "None",
-            *folder_paths.get_filename_list("loras"),
-            "aleksa-codes/flux-ghibsky-illustration/lora.safetensors",
-        ]
+        lora_name_list = ["None", *folder_paths.get_filename_list("loras")]
 
-        base_model_paths = [
-            "mit-han-lab/svdq-int4-flux.1-dev",
-            "mit-han-lab/svdq-int4-flux.1-schnell",
-            "mit-han-lab/svdq-fp4-flux.1-dev",
-            "mit-han-lab/svdq-fp4-flux.1-schnell",
-            "mit-han-lab/svdq-int4-flux.1-canny-dev",
-            "mit-han-lab/svdq-int4-flux.1-depth-dev",
-            "mit-han-lab/svdq-int4-flux.1-fill-dev",
-        ]
-        prefix = os.path.join(folder_paths.models_dir, "diffusion_models")
-        local_base_model_folders = os.listdir(prefix)
-        local_base_model_folders = sorted(
-            [
-                folder
-                for folder in local_base_model_folders
-                if not folder.startswith(".") and os.path.isdir(os.path.join(prefix, folder))
-            ]
-        )
-        base_model_paths = local_base_model_folders + base_model_paths
+        prefixes = folder_paths.folder_names_and_paths["diffusion_models"][0]
+        base_model_paths = set()
+        for prefix in prefixes:
+            if os.path.exists(prefix) and os.path.isdir(prefix):
+                base_model_paths_ = os.listdir(prefix)
+                base_model_paths_ = [
+                    folder
+                    for folder in base_model_paths_
+                    if not folder.startswith(".") and os.path.isdir(os.path.join(prefix, folder))
+                ]
+                base_model_paths.update(base_model_paths_)
+        base_model_paths = sorted(list(base_model_paths))
 
         return {
             "required": {
@@ -63,6 +55,12 @@ class SVDQuantFluxLoraLoader:
                         "tooltip": "How strongly to modify the diffusion model. This value can be negative.",
                     },
                 ),
+                "save_converted_lora": (
+                    ["disable", "enable"],
+                    {
+                        "tooltip": "If enabled, the converted LoRA will be saved as a .safetensors file in the save directory of your LoRA file."
+                    },
+                ),
             }
         }
 
@@ -78,7 +76,15 @@ class SVDQuantFluxLoraLoader:
         "Currently, only one LoRA nodes can be applied."
     )
 
-    def load_lora(self, model, lora_name: str, lora_format: str, base_model_name: str, lora_strength: float):
+    def load_lora(
+        self,
+        model,
+        lora_name: str,
+        lora_format: str,
+        base_model_name: str,
+        lora_strength: float,
+        save_converted_lora: str,
+    ):
         if self.cur_lora_name == lora_name:
             if self.cur_lora_name == "None":
                 pass  # Do nothing since the lora is None
@@ -110,9 +116,22 @@ class SVDQuantFluxLoraLoader:
                         base_model_path = os.path.join(base_model_name, "transformer_blocks.safetensors")
                     state_dict = convert_to_nunchaku_flux_lowrank_dict(base_model_path, input_lora)
 
-                    with tempfile.NamedTemporaryFile(suffix=".safetensors", delete=True) as tmp_file:
-                        save_file(state_dict, tmp_file.name)
-                        model.model.diffusion_model.model.update_lora_params(tmp_file.name)
+                    if save_converted_lora == "enable" and lora_format != "svdquant":
+                        dirname = os.path.dirname(lora_path)
+                        basename = os.path.basename(lora_path)
+                        if "int4" in base_model_path:
+                            precision = "int4"
+                        else:
+                            assert "fp4" in base_model_path
+                            precision = "fp4"
+                        converted_name = f"svdq-{precision}-{basename}"
+                        lora_converted_path = os.path.join(dirname, converted_name)
+                        if not os.path.exists(lora_converted_path):
+                            save_file(state_dict, lora_converted_path)
+                            logger.info(f"Saved converted LoRA to: {lora_converted_path}")
+                        else:
+                            logger.info(f"Converted LoRA already exists at: {lora_converted_path}")
+                    model.model.diffusion_model.model.update_lora_params(state_dict)
                 else:
                     model.model.diffusion_model.model.update_lora_params(lora_path)
                 model.model.diffusion_model.model.set_lora_strength(lora_strength)
