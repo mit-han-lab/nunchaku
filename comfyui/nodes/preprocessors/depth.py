@@ -3,13 +3,12 @@ import os
 import folder_paths
 import numpy as np
 import torch
-from image_gen_aux import DepthPreprocessor
 
 
 class FluxDepthPreprocessor:
     @classmethod
     def INPUT_TYPES(s):
-        model_paths = ["LiheYoung/depth-anything-large-hf"]
+        model_paths = []
         prefix = os.path.join(folder_paths.models_dir, "checkpoints")
         local_folders = os.listdir(prefix)
         local_folders = sorted(
@@ -36,9 +35,13 @@ class FluxDepthPreprocessor:
     TITLE = "FLUX.1 Depth Preprocessor"
 
     def depth_preprocess(self, image, model_path):
-        prefix = os.path.join(folder_paths.models_dir, "checkpoints")
-        if os.path.exists(os.path.join(prefix, model_path)):
-            model_path = os.path.join(prefix, model_path)
+        prefixes = folder_paths.folder_names_and_paths["checkpoints"][0]
+        for prefix in prefixes:
+            if os.path.exists(os.path.join(prefix, model_path)):
+                model_path = os.path.join(prefix, model_path)
+                break
+        from image_gen_aux import DepthPreprocessor
+
         processor = DepthPreprocessor.from_pretrained(model_path)
         np_image = np.asarray(image)
         np_result = np.array(processor(np_image)[0].convert("RGB"))

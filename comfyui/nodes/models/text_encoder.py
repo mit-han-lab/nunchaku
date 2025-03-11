@@ -45,7 +45,6 @@ class WrappedEmbedding(nn.Module):
 class SVDQuantTextEncoderLoader:
     @classmethod
     def INPUT_TYPES(s):
-        model_paths = ["mit-han-lab/svdq-flux.1-t5"]
         prefixes = folder_paths.folder_names_and_paths["text_encoders"][0]
         local_folders = set()
         for prefix in prefixes:
@@ -57,8 +56,7 @@ class SVDQuantTextEncoderLoader:
                     if not folder.startswith(".") and os.path.isdir(os.path.join(prefix, folder))
                 ]
                 local_folders.update(local_folders_)
-        local_folders = sorted(list(local_folders))
-        model_paths.extend(local_folders)
+        model_paths = sorted(list(local_folders))
         return {
             "required": {
                 "model_type": (["flux"],),
@@ -68,8 +66,8 @@ class SVDQuantTextEncoderLoader:
                     "INT",
                     {"default": 512, "min": 256, "max": 1024, "step": 128, "display": "number", "lazy": True},
                 ),
-                "t5_precision": (["BF16", "INT4"],),
-                "int4_model": (model_paths, {"tooltip": "The name of the INT4 model."}),
+                "use_4bit_t5": (["disable", "enable"],),
+                "int4_model": (model_paths, {"tooltip": "The name of the 4-bit T5 model."}),
             }
         }
 
@@ -86,7 +84,7 @@ class SVDQuantTextEncoderLoader:
         text_encoder1: str,
         text_encoder2: str,
         t5_min_length: int,
-        t5_precision: str,
+        use_4bit_t5: str,
         int4_model: str,
     ):
         text_encoder_path1 = folder_paths.get_full_path_or_raise("text_encoders", text_encoder1)
@@ -105,7 +103,7 @@ class SVDQuantTextEncoderLoader:
         if model_type == "flux":
             clip.tokenizer.t5xxl.min_length = t5_min_length
 
-        if t5_precision == "INT4":
+        if use_4bit_t5 == "enable":
             transformer = clip.cond_stage_model.t5xxl.transformer
             param = next(transformer.parameters())
             dtype = param.dtype

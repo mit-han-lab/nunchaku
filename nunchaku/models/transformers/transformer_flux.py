@@ -8,7 +8,6 @@ from huggingface_hub import utils
 from packaging.version import Version
 from torch import nn
 
-from nunchaku.utils import fetch_or_download
 from .utils import NunchakuModelLoaderMixin, pad_tensor
 from ..._C import QuantizedFluxModel, utils as cutils
 from ...utils import load_state_dict_in_safetensors
@@ -224,13 +223,18 @@ class NunchakuFluxTransformer2dModel(FluxTransformer2DModel, NunchakuModelLoader
                 new_state_dict[k] = v
         self.load_state_dict(new_state_dict, strict=True)
 
-    def update_lora_params(self, path: str):
-        state_dict = load_state_dict_in_safetensors(path)
+    def update_lora_params(self, path_or_state_dict: str | dict[str, torch.Tensor]):
+        if isinstance(path_or_state_dict, dict):
+            state_dict = path_or_state_dict
+        else:
+            state_dict = load_state_dict_in_safetensors(path_or_state_dict)
 
         unquantized_loras = {}
         for k in state_dict.keys():
             if "transformer_blocks" not in k:
                 unquantized_loras[k] = state_dict[k]
+        for k in unquantized_loras.keys():
+            state_dict.pop(k)
 
         self.unquantized_loras = unquantized_loras
         if len(unquantized_loras) > 0:
@@ -239,10 +243,9 @@ class NunchakuFluxTransformer2dModel(FluxTransformer2DModel, NunchakuModelLoader
                 self.unquantized_state_dict = {k: v.cpu() for k, v in unquantized_state_dict.items()}
             self.update_unquantized_lora_params(1)
 
-        path = fetch_or_download(path)
         block = self.transformer_blocks[0]
         assert isinstance(block, NunchakuFluxTransformerBlocks)
-        block.m.load(path, True)
+        block.m.loadDict(path_or_state_dict, True)
 
     def set_lora_strength(self, strength: float = 1):
         block = self.transformer_blocks[0]
