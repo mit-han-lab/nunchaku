@@ -410,7 +410,7 @@ std::tuple<Tensor, Tensor> JointTransformerBlock::forward(Tensor hidden_states, 
     auto stream = getCurrentCUDAStream();
     Tensor concat;
     Tensor pool;
-    
+
     {
         nvtxRangePushA("qkv_proj");
 
@@ -422,16 +422,16 @@ std::tuple<Tensor, Tensor> JointTransformerBlock::forward(Tensor hidden_states, 
         pool = blockSparse
             ? Tensor::allocate({batch_size, poolTokens, dim * 3}, norm1_output.x.scalar_type(), norm1_output.x.device())
             : Tensor{};
-        
+
         for (int i = 0; i < batch_size; i++) {
             // img first
             Tensor qkv = concat.slice(0, i, i + 1).slice(1, 0, num_tokens_img);
             Tensor qkv_context = concat.slice(0, i, i + 1).slice(1, num_tokens_img, num_tokens_img + num_tokens_context);
 
-            Tensor pool_qkv = pool.valid() 
-                ? pool.slice(0, i, i + 1).slice(1, 0, num_tokens_img / POOL_SIZE) 
+            Tensor pool_qkv = pool.valid()
+                ? pool.slice(0, i, i + 1).slice(1, 0, num_tokens_img / POOL_SIZE)
                 : Tensor{};
-            Tensor pool_qkv_context = pool.valid() 
+            Tensor pool_qkv_context = pool.valid()
                 ? concat.slice(0, i, i + 1).slice(1, num_tokens_img / POOL_SIZE, num_tokens_img / POOL_SIZE + num_tokens_context / POOL_SIZE)
                 : Tensor{};
 
@@ -626,7 +626,7 @@ FluxModel::FluxModel(bool use_fp4, bool offload, Tensor::ScalarType dtype, Devic
     }
 }
 
-Tensor FluxModel::forward(Tensor hidden_states, Tensor encoder_hidden_states, Tensor temb, Tensor rotary_emb_img, Tensor rotary_emb_context, Tensor rotary_emb_single) {
+Tensor FluxModel::forward(Tensor hidden_states, Tensor encoder_hidden_states, Tensor temb, Tensor rotary_emb_img, Tensor rotary_emb_context, Tensor rotary_emb_single, bool skip_first_layer) {
     const int batch_size = hidden_states.shape[0];
     const Tensor::ScalarType dtype = hidden_states.dtype();
     const Device device = hidden_states.device();
@@ -639,6 +639,7 @@ Tensor FluxModel::forward(Tensor hidden_states, Tensor encoder_hidden_states, Te
     Tensor concat;
 
     auto compute = [&](int layer) {
+        if (skip_first_layer && size_t(layer) == 0) return;
         if (size_t(layer) < transformer_blocks.size()) {
             auto &block = transformer_blocks.at(layer);
             std::tie(hidden_states, encoder_hidden_states) = block->forward(hidden_states, encoder_hidden_states, temb, rotary_emb_img, rotary_emb_context, 0.0f);
