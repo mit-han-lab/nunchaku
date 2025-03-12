@@ -245,7 +245,7 @@ class NunchakuFluxTransformer2dModel(FluxTransformer2DModel, NunchakuModelLoader
 
         block = self.transformer_blocks[0]
         assert isinstance(block, NunchakuFluxTransformerBlocks)
-        block.m.loadDict(path_or_state_dict, True)
+        block.m.loadDict(state_dict, True)
 
     def set_lora_strength(self, strength: float = 1):
         block = self.transformer_blocks[0]
