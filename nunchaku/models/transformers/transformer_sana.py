@@ -30,6 +30,7 @@ class NunchakuSanaTransformerBlocks(nn.Module):
         timestep: Optional[torch.LongTensor] = None,
         height: Optional[int] = None,
         width: Optional[int] = None,
+        skip_first_layer: Optional[bool] = False
     ):
 
         batch_size = hidden_states.shape[0]
@@ -60,6 +61,61 @@ class NunchakuSanaTransformerBlocks(nn.Module):
 
         return (
             self.m.forward(
+                hidden_states.to(self.dtype).to(self.device),
+                nunchaku_encoder_hidden_states.to(self.dtype).to(self.device),
+                timestep.to(self.dtype).to(self.device),
+                cu_seqlens_img.to(self.device),
+                cu_seqlens_txt.to(self.device),
+                height,
+                width,
+                batch_size % 3 == 0,  # pag is set when loading the model, FIXME: pag_scale == 0
+                True,  # TODO: find a way to detect if we are doing CFG
+                skip_first_layer,
+            )
+            .to(original_dtype)
+            .to(original_device)
+        )
+
+    def forward_layer_at(
+            self,
+            idx: int,
+            hidden_states: torch.Tensor,
+            attention_mask: Optional[torch.Tensor] = None,
+            encoder_hidden_states: Optional[torch.Tensor] = None,
+            encoder_attention_mask: Optional[torch.Tensor] = None,
+            timestep: Optional[torch.LongTensor] = None,
+            height: Optional[int] = None,
+            width: Optional[int] = None,
+    ):
+        batch_size = hidden_states.shape[0]
+        img_tokens = hidden_states.shape[1]
+        txt_tokens = encoder_hidden_states.shape[1]
+
+        original_dtype = hidden_states.dtype
+        original_device = hidden_states.device
+
+        assert encoder_attention_mask is not None
+        assert encoder_attention_mask.shape == (batch_size, 1, txt_tokens)
+
+        mask = encoder_attention_mask.reshape(batch_size, txt_tokens)
+        nunchaku_encoder_hidden_states = encoder_hidden_states[mask > -9000]
+
+        cu_seqlens_txt = F.pad((mask > -9000).sum(dim=1).cumsum(dim=0), pad=(1, 0), value=0).to(torch.int32)
+        cu_seqlens_img = torch.arange(
+            0, (batch_size + 1) * img_tokens, img_tokens, dtype=torch.int32, device=self.device
+        )
+
+        if height is None and width is None:
+            height = width = int(img_tokens**0.5)
+        elif height is None:
+            height = img_tokens // width
+        elif width is None:
+            width = img_tokens // height
+        assert height * width == img_tokens
+
+        return (
+            self.m.forward_layer(
+                idx,
                 hidden_states.to(self.dtype).to(self.device),
                 nunchaku_encoder_hidden_states.to(self.dtype).to(self.device),
                 timestep.to(self.dtype).to(self.device),

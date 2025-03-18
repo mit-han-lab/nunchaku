@@ -26,15 +26,16 @@ public:
     }
 
     torch::Tensor forward(
-        torch::Tensor hidden_states, 
-        torch::Tensor encoder_hidden_states, 
-        torch::Tensor timestep, 
-        torch::Tensor cu_seqlens_img, 
-        torch::Tensor cu_seqlens_txt, 
-        int H, 
+        torch::Tensor hidden_states,
+        torch::Tensor encoder_hidden_states,
+        torch::Tensor timestep,
+        torch::Tensor cu_seqlens_img,
+        torch::Tensor cu_seqlens_txt,
+        int H,
         int W,
-        bool pag, 
-        bool cfg) 
+        bool pag,
+        bool cfg,
+        bool skip_first_layer = false)
     {
         checkModel();
         CUDADeviceContext ctx(deviceId);
@@ -54,7 +55,8 @@ public:
             from_torch(cu_seqlens_img),
             from_torch(cu_seqlens_txt),
             H, W,
-            pag, cfg
+            pag, cfg,
+            skip_first_layer
         );
 
         torch::Tensor output = to_torch(result);
@@ -65,15 +67,15 @@ public:
 
     torch::Tensor forward_layer(
         int64_t idx,
-        torch::Tensor hidden_states, 
-        torch::Tensor encoder_hidden_states, 
-        torch::Tensor timestep, 
-        torch::Tensor cu_seqlens_img, 
-        torch::Tensor cu_seqlens_txt, 
-        int H, 
+        torch::Tensor hidden_states,
+        torch::Tensor encoder_hidden_states,
+        torch::Tensor timestep,
+        torch::Tensor cu_seqlens_img,
+        torch::Tensor cu_seqlens_txt,
+        int H,
         int W,
-        bool pag, 
-        bool cfg) 
+        bool pag,
+        bool cfg)
     {
         checkModel();
         CUDADeviceContext ctx(deviceId);

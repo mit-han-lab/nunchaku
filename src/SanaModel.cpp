@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "SanaModel.h"
 #include "kernels/zgemm/zgemm.h"
 #include "flash_api.h"
@@ -7,6 +9,7 @@
 
 using spdlog::fmt_lib::format;
 using namespace nunchaku;
+
 
 SanaLinearAttention::SanaLinearAttention(int dim, bool bias, bool pag, bool use_fp4, Tensor::ScalarType dtype, Device device) :
     dim(dim),
@@ -28,7 +31,7 @@ SanaLinearAttention::SanaLinearAttention(int dim, bool bias, bool pag, bool use_
 
 Tensor SanaLinearAttention::forward(Tensor x, Tensor out) {
     constexpr int HEAD_DIM = 32;
-    
+
     assert(x.ndims() == 3);
     const int batch_size = x.shape[0];
     const int num_tokens = x.shape[1];
@@ -45,7 +48,7 @@ Tensor SanaLinearAttention::forward(Tensor x, Tensor out) {
         for (int i = 0; i < batch_size; i++) {
             x_pad.slice(0, i, i + 1).slice(1, 0, num_tokens).copy_(x.slice(0, i, i + 1));
         }
-        
+
         x = x_pad;
     }
 
@@ -55,14 +58,14 @@ Tensor SanaLinearAttention::forward(Tensor x, Tensor out) {
     Tensor vk = Tensor::allocate({batch_size, num_heads, HEAD_DIM + 1, HEAD_DIM}, Tensor::FP32, x.device());
 
     kernels::gemm_w4a4(
-        qact.act, 
-        qkv_proj.qweight, 
-        {}, 
-        {}, 
-        qact.ascales, 
-        qkv_proj.wscales, 
-        {}, {}, qact.lora_act, qkv_proj.lora_up, {}, {}, {}, {}, {}, qkv_proj.bias, {}, 
-        vk, q, 
+        qact.act,
+        qkv_proj.qweight,
+        {},
+        {},
+        qact.ascales,
+        qkv_proj.wscales,
+        {}, {}, qact.lora_act, qkv_proj.lora_up, {}, {}, {}, {}, {}, qkv_proj.bias, {},
+        vk, q,
         qact.is_unsigned, qkv_proj.lora_scales, false,
         qkv_proj.use_fp4,
         *qkv_proj.wtscale.data_ptr<float>(),
@@ -118,12 +121,12 @@ Tensor SanaLinearAttention::forward_pag(Tensor x, bool cfg) {
     }
 
     this->forward(x_org, out_org);
-    
+
     Tensor v_ptb = this->pag_to_v.value().forward(x_ptb);
     this->out_proj.forward(v_ptb, out_ptb);
 
     return out;
-}   
+}
 
 MultiHeadCrossAttention::MultiHeadCrossAttention(int num_heads, int head_dim, bool use_fp4, Tensor::ScalarType dtype, Device device) :
     num_heads(num_heads), head_dim(head_dim),
@@ -143,7 +146,7 @@ Tensor MultiHeadCrossAttention::forward(Tensor x, Tensor cond, Tensor cu_seqlens
     assert(cond.ndims() == 2);
     assert(cu_seqlens_img.ndims() == 1);
     assert(cu_seqlens_txt.ndims() == 1);
-    
+
     const int batch_size     = x.shape[0];
     const int num_tokens_img = x.shape[1];
     const int num_tokens_txt = cond.shape[0];
@@ -163,21 +166,21 @@ Tensor MultiHeadCrossAttention::forward(Tensor x, Tensor cond, Tensor cu_seqlens
         num_tokens_img, num_tokens_txt,
         0.0f,
         pow(q.shape[-1], (-0.5)),
-        false, false, 
+        false, false,
         -1, -1,
         false
     ).front().view({batch_size, num_tokens_img, num_heads * head_dim});
 
-    // Tensor attn_output = mha_fwd(q, k, v, 
-    //     0.0f, 
-    //     pow(q.shape[-1], (-0.5)), 
+    // Tensor attn_output = mha_fwd(q, k, v,
+    //     0.0f,
+    //     pow(q.shape[-1], (-0.5)),
     //     false, -1, -1, false
     // ).front().view({B, N, num_heads * head_dim});
 
     return out_proj.forward(attn_output);
 }
 
-SanaGLUMBConv::SanaGLUMBConv(int in_features, int hidden_features, bool use_fp4, Tensor::ScalarType dtype, Device device) : 
+SanaGLUMBConv::SanaGLUMBConv(int in_features, int hidden_features, bool use_fp4, Tensor::ScalarType dtype, Device device) :
     in_features(in_features), hidden_features(hidden_features),
     inverted_conv(in_features, hidden_features * 2, true, use_fp4, dtype, device),
     depth_conv(hidden_features * 2, true, dtype, device),
@@ -204,7 +207,7 @@ Tensor SanaGLUMBConv::forward(Tensor x, int H, int W) {
     return point_conv.forward_quant(qact);
 }
 
-SanaLinearTransformerBlock::SanaLinearTransformerBlock(int hidden_size, int intermediate_size, int num_cross_attention_heads, bool pag, bool use_fp4, Tensor::ScalarType dtype, Device device) : 
+SanaLinearTransformerBlock::SanaLinearTransformerBlock(int hidden_size, int intermediate_size, int num_cross_attention_heads, bool pag, bool use_fp4, Tensor::ScalarType dtype, Device device) :
     hidden_size(hidden_size), num_cross_attention_heads(num_cross_attention_heads),
     attn(hidden_size, false, pag, use_fp4, dtype, device),
     cross_attn(num_cross_attention_heads, hidden_size / num_cross_attention_heads, use_fp4, dtype, device),
@@ -240,7 +243,7 @@ Tensor SanaLinearTransformerBlock::forward(Tensor hidden_states, Tensor encoder_
 
     kernels::mul_add_batch(timestep, {}, false, 0, this->scale_shift_table, false);
     debug("shifted_timestep", timestep);
-    
+
     std::array<Tensor, 6> chunked;
     for (int i = 0; i < 6; i++) {
         chunked[i] = timestep.slice(1, i, i + 1);
@@ -299,7 +302,7 @@ Tensor SanaLinearTransformerBlock::forward(Tensor hidden_states, Tensor encoder_
 
         nvtxRangePop();
     }
-    
+
     nvtxRangePop();
 
     debug("hidden_states_out", hidden_states);
@@ -307,7 +310,7 @@ Tensor SanaLinearTransformerBlock::forward(Tensor hidden_states, Tensor encoder_
     return hidden_states;
 }
 
-SanaModel::SanaModel(SanaConfig config, Tensor::ScalarType dtype, Device device) : 
+SanaModel::SanaModel(SanaConfig config, Tensor::ScalarType dtype, Device device) :
     config(config)
 {
     const int inner_dim = config.num_attention_heads * config.attention_head_dim;
@@ -324,8 +327,8 @@ SanaModel::SanaModel(SanaConfig config, Tensor::ScalarType dtype, Device device)
     }
 }
 
-Tensor SanaModel::forward(Tensor hidden_states, Tensor encoder_hidden_states, Tensor timestep, Tensor cu_seqlens_img, Tensor cu_seqlens_txt, int H, int W, bool pag, bool cfg) {
-    for (int i = 0; i < config.num_layers; i++) {
+Tensor SanaModel::forward(Tensor hidden_states, Tensor encoder_hidden_states, Tensor timestep, Tensor cu_seqlens_img, Tensor cu_seqlens_txt, int H, int W, bool pag, bool cfg, bool skip_first_layer) {
+    for (int i = (skip_first_layer ? 1 : 0); i < config.num_layers; i++) {
         auto &&block = transformer_blocks[i];
         hidden_states = block->forward(
             hidden_states, encoder_hidden_states, timestep, cu_seqlens_img, cu_seqlens_txt, H, W,
