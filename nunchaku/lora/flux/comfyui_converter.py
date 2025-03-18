@@ -50,6 +50,11 @@ def comfyui2diffusers(
                 new_k = new_k.replace("_txt_mlp_0", ".ff_context.net.0.proj")
                 new_k = new_k.replace("_txt_mlp_2", ".ff_context.net.2")
                 new_k = new_k.replace("_txt_mod_lin", ".norm1_context.linear")
+                if "lora_down" in k:
+                    alpha = tensors[k.replace("lora_down.weight", "alpha")]
+                    rank = v.shape[0]
+                    v = v * alpha / rank
+                    max_rank = max(max_rank, rank)
                 new_tensors[new_k] = v
         else:
             assert "lora_unet_single_blocks" in k
