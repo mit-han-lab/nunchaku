@@ -19,7 +19,7 @@ def comfyui2diffusers(
     new_tensors = {}
     max_rank = 0
     for k, v in tensors.items():
-        if "alpha" in k:
+        if "alpha" in k or "lora_te" in k:
             continue
         new_k = k.replace("lora_down", "lora_A").replace("lora_up", "lora_B")
         if "lora_unet_double_blocks_" in k:
