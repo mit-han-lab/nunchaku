@@ -25,6 +25,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("forward", &QuantizedFluxModel::forward)
         .def("forward_layer", &QuantizedFluxModel::forward_layer)
         .def("forward_single_layer", &QuantizedFluxModel::forward_single_layer)
+        .def("norm1_forward", &QuantizedFluxModel::norm1_forward)
         .def("startDebug", &QuantizedFluxModel::startDebug)
         .def("stopDebug", &QuantizedFluxModel::stopDebug)
         .def("getDebugResults", &QuantizedFluxModel::getDebugResults)

@@ -109,9 +109,9 @@ public:
     const int dim_head;
     const int num_heads;
     const bool context_pre_only;
+    AdaLayerNormZero norm1;
 
 private:
-    AdaLayerNormZero norm1;
     AdaLayerNormZero norm1_context;
     GEMM qkv_proj;
     GEMM qkv_proj_context;
