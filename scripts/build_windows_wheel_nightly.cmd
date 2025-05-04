@@ -20,11 +20,7 @@ call conda activate %ENV_NAME%
 :: install dependencies
 call pip install ninja setuptools wheel build
 
-if "%TORCH_VERSION%"=="2.7" (
-    call pip install --pre torch==2.7.0.dev20250307+cu128 torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
-) else (
-    call pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
-)
+call pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
 
 :: set environment variables
 set NUNCHAKU_INSTALL_MODE=ALL

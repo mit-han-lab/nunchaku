@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 REM Define Python and Torch versions
 set "python_versions=3.10 3.11 3.12 3.13"
-set "torch_versions=2.5 2.6"
+set "torch_versions=2.5 2.6 2.7"
 set "cuda_version=12.4"
 
 REM Iterate over Python and Torch versions
@@ -20,15 +20,15 @@ for %%P in (%python_versions%) do (
     )
 )
 
-call scripts\build_windows_wheel_cu128.cmd 3.10 2.7 12.8
-call scripts\build_windows_wheel_cu128.cmd 3.11 2.7 12.8
-call scripts\build_windows_wheel_cu128.cmd 3.12 2.7 12.8
-call scripts\build_windows_wheel_cu128.cmd 3.13 2.7 12.8
+call scripts\build_windows_wheel.cmd 3.10 2.7 12.8
+call scripts\build_windows_wheel.cmd 3.11 2.7 12.8
+call scripts\build_windows_wheel.cmd 3.12 2.7 12.8
+call scripts\build_windows_wheel.cmd 3.13 2.7 12.8
 
-call scripts\build_windows_wheel_cu128.cmd 3.10 2.8 12.8
-call scripts\build_windows_wheel_cu128.cmd 3.11 2.8 12.8
-call scripts\build_windows_wheel_cu128.cmd 3.12 2.8 12.8
-call scripts\build_windows_wheel_cu128.cmd 3.13 2.8 12.8
+call scripts\build_windows_wheel_nightly.cmd 3.10 2.8 12.8
+call scripts\build_windows_wheel_nightly.cmd 3.11 2.8 12.8
+call scripts\build_windows_wheel_nightly.cmd 3.12 2.8 12.8
+call scripts\build_windows_wheel_nightly.cmd 3.13 2.8 12.8
 
 echo All builds completed successfully!
 exit /b 0
