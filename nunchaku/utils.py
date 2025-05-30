@@ -1,17 +1,29 @@
-import os
 import warnings
+from os import PathLike
+from pathlib import Path
 
 import safetensors
 import torch
 from huggingface_hub import hf_hub_download
 
 
-def fetch_or_download(path: str, repo_type: str = "model") -> str:
-    if not os.path.exists(path):
-        hf_repo_id = os.path.dirname(path)
-        filename = os.path.basename(path)
-        path = hf_hub_download(repo_id=hf_repo_id, filename=filename, repo_type=repo_type)
-    return path
+def fetch_or_download(path: str | Path, repo_type: str = "model") -> Path:
+    path = Path(path)
+
+    if path.exists():
+        return path
+
+    parts = path.parts
+    if len(parts) < 3:
+        raise ValueError(f"Path '{path}' is too short to extract repo_id and subfolder")
+
+    repo_id = "/".join(parts[:2])
+    sub_path = Path(*parts[2:])
+    filename = sub_path.name
+    subfolder = sub_path.parent if sub_path.parent != Path(".") else None
+
+    path = hf_hub_download(repo_id=repo_id, filename=filename, subfolder=subfolder, repo_type=repo_type)
+    return Path(path)
 
 
 def ceil_divide(x: int, divisor: int) -> int:
@@ -31,7 +43,10 @@ def ceil_divide(x: int, divisor: int) -> int:
 
 
 def load_state_dict_in_safetensors(
-    path: str, device: str | torch.device = "cpu", filter_prefix: str = ""
+    path: str | PathLike[str],
+    device: str | torch.device = "cpu",
+    filter_prefix: str = "",
+    return_metadata: bool = False,
 ) -> dict[str, torch.Tensor]:
     """Load state dict in SafeTensors.
 
@@ -49,6 +64,9 @@ def load_state_dict_in_safetensors(
     """
     state_dict = {}
     with safetensors.safe_open(fetch_or_download(path), framework="pt", device=device) as f:
+        metadata = f.metadata()
+        if return_metadata:
+            state_dict["__metadata__"] = metadata
         for k in f.keys():
             if filter_prefix and not k.startswith(filter_prefix):
                 continue

@@ -20,11 +20,7 @@ call conda activate %ENV_NAME%
 :: install dependencies
 call pip install ninja setuptools wheel build
 
-if "%TORCH_VERSION%"=="2.7" (
-    call pip install --pre torch==2.7.0.dev20250307+cu128 torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
-) else (
-    call pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
-)
+call pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
 
 :: set environment variables
 set NUNCHAKU_INSTALL_MODE=ALL
@@ -37,6 +33,7 @@ if exist build rd /s /q build
 :: set up Visual Studio compilation environment
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" -startdir=none -arch=x64 -host_arch=x64
 set DISTUTILS_USE_SDK=1
+set MAX_JOBS=4
 
 :: build wheels
 python -m build --wheel --no-isolation

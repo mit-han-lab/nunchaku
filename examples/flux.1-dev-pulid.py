@@ -9,7 +9,9 @@ from nunchaku.pipeline.pipeline_flux_pulid import PuLIDFluxPipeline
 from nunchaku.utils import get_precision
 
 precision = get_precision()
-transformer = NunchakuFluxTransformer2dModel.from_pretrained(f"mit-han-lab/svdq-{precision}-flux.1-dev")
+transformer = NunchakuFluxTransformer2dModel.from_pretrained(
+    f"mit-han-lab/nunchaku-flux.1-dev/svdq-{precision}_r32-flux.1-dev.safetensors"
+)
 
 pipeline = PuLIDFluxPipeline.from_pretrained(
     "black-forest-labs/FLUX.1-dev",
@@ -22,7 +24,7 @@ pipeline.transformer.forward = MethodType(pulid_forward, pipeline.transformer)
 id_image = load_image("https://github.com/ToTheBeginning/PuLID/blob/main/example_inputs/liuyifei.png?raw=true")
 
 image = pipeline(
-    "A woman holding a sign that says 'SVDQuant is fast!",
+    "A woman holding a sign that says 'SVDQuant is fast!'",
     id_image=id_image,
     id_weight=1,
     num_inference_steps=12,

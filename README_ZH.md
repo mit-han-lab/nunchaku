@@ -1,5 +1,5 @@
 <div align="center" id="nunchaku_logo">
-  <img src="assets/nunchaku.svg" alt="logo" width="220"></img>
+  <img src="https://raw.githubusercontent.com/mit-han-lab/nunchaku/477953fa1dd6f082fbec201cea7c7430117a810e/assets/nunchaku.svg" alt="logo" width="220"></img>
 </div>
 <h3 align="center">
 <a href="http://arxiv.org/abs/2411.05007"><b>论文</b></a> | <a href="https://hanlab.mit.edu/projects/svdquant"><b>官网</b></a> | <a href="https://hanlab.mit.edu/blog/svdquant"><b>博客</b></a> | <a href="https://svdquant.mit.edu"><b>演示</b></a> | <a href="https://huggingface.co/collections/mit-han-lab/svdquant-67493c2c2e62a1fc6e93f45c"><b>HuggingFace</b></a> | <a href="https://modelscope.cn/collections/svdquant-468e8f780c2641"><b>ModelScope</b></a> | <a href="https://github.com/mit-han-lab/ComfyUI-nunchaku"><b>ComfyUI</b></a>
@@ -30,7 +30,7 @@
 <summary>更多动态</summary>
 
 - **[2025-02-04]** **🚀 4-bit量化版[FLUX.1工具集](https://blackforestlabs.ai/flux-1-tools/)发布！** 相比原模型提速**2-3倍**。[示例代码](./examples)已更新，**ComfyUI支持即将到来！**
-- **[2025-01-23]** 🚀 **支持4-bit量化[SANA](https://nvlabs.github.io/Sana/)！** 相比16位模型提速2-3倍。[使用示例](./examples/sana_1600m_pag.py)和[部署指南](app/sana/t2i)已发布，体验[在线演示](https://svdquant.mit.edu)！
+- **[2025-01-23]** 🚀 **支持4-bit量化[SANA](https://nvlabs.github.io/Sana/)！** 相比16位模型提速2-3倍。[使用示例](examples/sana1.6b_pag.py)和[部署指南](app/sana/t2i)已发布，体验[在线演示](https://svdquant.mit.edu)！
 - **[2025-01-22]** 🎉 [**SVDQuant**](http://arxiv.org/abs/2411.05007) 被 **ICLR 2025** 接收！
 - **[2024-12-08]** 支持 [ComfyUI](https://github.com/comfyanonymous/ComfyUI)，详情见 [mit-han-lab/ComfyUI-nunchaku](https://github.com/mit-han-lab/ComfyUI-nunchaku)。
 - **[2024-11-07]** 🔥 最新 **W4A4** 扩散模型量化工作 [**SVDQuant**](https://hanlab.mit.edu/projects/svdquant) 开源！量化库 [**DeepCompressor**](https://github.com/mit-han-lab/deepcompressor) 同步发布。
@@ -126,10 +126,10 @@ pip install https://huggingface.co/mit-han-lab/nunchaku/resolve/main/nunchaku-0.
    pip install peft opencv-python gradio spaces GPUtil
    ```
 
-   Blackwell用户需安装PyTorch nightly（CUDA 12.8）：
+   Blackwell用户需安装PyTorch>=2.7, CUDA>=12.8：
 
    ```shell
-   pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
    ```
 
 2. 编译安装：

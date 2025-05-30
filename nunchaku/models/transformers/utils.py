@@ -1,4 +1,7 @@
+import json
+import logging
 import os
+from pathlib import Path
 from typing import Any, Optional
 
 import torch
@@ -6,12 +9,45 @@ from diffusers import __version__
 from huggingface_hub import constants, hf_hub_download
 from torch import nn
 
-from nunchaku.utils import ceil_divide
+from nunchaku.utils import ceil_divide, load_state_dict_in_safetensors
+
+# Get log level from environment variable (default to INFO)
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+# Configure logging
+logging.basicConfig(level=getattr(logging, log_level, logging.INFO), format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
 class NunchakuModelLoaderMixin:
+
     @classmethod
-    def _build_model(cls, pretrained_model_name_or_path: str | os.PathLike, **kwargs) -> tuple[nn.Module, str, str]:
+    def _build_model(
+        cls, pretrained_model_name_or_path: str | os.PathLike[str], **kwargs
+    ) -> tuple[nn.Module, dict[str, torch.Tensor]]:
+        if isinstance(pretrained_model_name_or_path, str):
+            pretrained_model_name_or_path = Path(pretrained_model_name_or_path)
+        state_dict = load_state_dict_in_safetensors(pretrained_model_name_or_path, return_metadata=True)
+
+        # Load the config file
+        metadata = state_dict.pop("__metadata__", {})
+        config = json.loads(metadata["config"])
+
+        with torch.device("meta"):
+            transformer = cls.from_config(config).to(kwargs.get("torch_dtype", torch.bfloat16))
+
+        return transformer, state_dict
+
+    @classmethod
+    def _build_model_legacy(
+        cls, pretrained_model_name_or_path: str | os.PathLike, **kwargs
+    ) -> tuple[nn.Module, str, str]:
+        logger.warning(
+            "Loading models from a folder will be deprecated in v0.4. "
+            "Please download the latest safetensors model, or use one of the following tools to "
+            "merge your model into a single file: the CLI utility `python -m nunchaku.merge_models` "
+            "or the ComfyUI node `MergeFolderIntoSingleFile`."
+        )
         subfolder = kwargs.get("subfolder", None)
         if os.path.exists(pretrained_model_name_or_path):
             dirname = (
@@ -41,10 +77,10 @@ class NunchakuModelLoaderMixin:
                 "local_dir_use_symlinks": kwargs.get("local_dir_use_symlinks", "auto"),
             }
             unquantized_part_path = hf_hub_download(
-                repo_id=pretrained_model_name_or_path, filename="unquantized_layers.safetensors", **download_kwargs
+                repo_id=str(pretrained_model_name_or_path), filename="unquantized_layers.safetensors", **download_kwargs
             )
             transformer_block_path = hf_hub_download(
-                repo_id=pretrained_model_name_or_path, filename="transformer_blocks.safetensors", **download_kwargs
+                repo_id=str(pretrained_model_name_or_path), filename="transformer_blocks.safetensors", **download_kwargs
             )
 
         cache_dir = kwargs.pop("cache_dir", None)
@@ -70,7 +106,6 @@ class NunchakuModelLoaderMixin:
 
         with torch.device("meta"):
             transformer = cls.from_config(config).to(kwargs.get("torch_dtype", torch.bfloat16))
-
         return transformer, unquantized_part_path, transformer_block_path
 
 

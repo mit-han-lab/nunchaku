@@ -1,5 +1,5 @@
 recursive-include src *.cpp *.h *.hpp *.ipp *.cu *.cuh
-recursive-include nunchaku *.py
+recursive-include nunchaku *.py *.json
 recursive-include nunchaku/csrc *.cpp *.h *.hpp *.ipp *.cu *.cuh
 
 recursive-include third_party/Block-Sparse-Attention/csrc/block_sparse_attn *.cpp *.h *.hpp *.ipp *.cu *.cuh

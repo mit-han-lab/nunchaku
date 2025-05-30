@@ -37,7 +37,7 @@ This error is typically due to using the wrong model for your GPU.
 - If you're using a **Blackwell GPU (e.g., RTX 50-series)**, please use our **FP4** models.
 - For all other GPUs, use our **INT4** models.
 
-### ❗ System crash or blue screen (e.g., mit-han-lab/nunchaku#57))
+### ❗ System crash or blue screen (e.g., mit-han-lab/nunchaku#57)
 We have observed some cases where memory is not properly released after image generation, especially when using ComfyUI. This may lead to system instability or crashes.
 
 We’re actively investigating this issue. If you have experience or insights into memory management in ComfyUI, we would appreciate your help!

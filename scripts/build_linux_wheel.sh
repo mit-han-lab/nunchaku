@@ -16,18 +16,20 @@ elif [ "$TORCH_VERSION" == "2.6" ]; then
   TORCHVISION_VERSION="0.21"
   TORCHAUDIO_VERSION="2.6"
   echo "TORCH_VERSION is 2.6, setting TORCHVISION_VERSION to $TORCHVISION_VERSION and TORCHAUDIO_VERSION to $TORCHAUDIO_VERSION"
+elif [ "$TORCH_VERSION" == "2.7" ]; then
+  TORCHVISION_VERSION="0.22"
+  TORCHAUDIO_VERSION="2.7"
+  echo "TORCH_VERSION is 2.7, setting TORCHVISION_VERSION to $TORCHVISION_VERSION and TORCHAUDIO_VERSION to $TORCHAUDIO_VERSION"
 else
-  echo "TORCH_VERSION is not 2.5 or 2.6, no changes to versions."
+  echo "TORCH_VERSION is not 2.5, 2.6 or 2.7, no changes to versions."
 fi
 
 docker run --rm \
     -v "$(pwd)":/nunchaku \
-    pytorch/manylinux-builder:cuda${CUDA_VERSION} \
+    pytorch/manylinux2_28-builder:cuda${CUDA_VERSION} \
     bash -c "
     cd /nunchaku && \
     rm -rf build && \
-    yum install -y devtoolset-11 && \
-    source scl_source enable devtoolset-11 && \
     gcc --version && g++ --version && \
     ${PYTHON_ROOT_PATH}/bin/pip install --no-cache-dir torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} --index-url https://download.pytorch.org/whl/cu${CUDA_VERSION//.} && \
     ${PYTHON_ROOT_PATH}/bin/pip install build ninja wheel setuptools && \
