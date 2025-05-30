@@ -257,7 +257,7 @@ class SanaCachedTransformerBlocks(nn.Module):
         first_hidden_states_residual = hidden_states - original_hidden_states
         del original_hidden_states
 
-        can_use_cache = get_can_use_cache(
+        can_use_cache, _ = get_can_use_cache(
             first_hidden_states_residual,
             threshold=self.residual_diff_threshold,
             parallelized=self.transformer is not None and getattr(self.transformer, "_is_parallelized", False),
@@ -272,7 +272,7 @@ class SanaCachedTransformerBlocks(nn.Module):
         else:
             if self.verbose:
                 print("Cache miss!!!")
-            set_buffer("first_hidden_states_residual", first_hidden_states_residual)
+            set_buffer("first_multi_hidden_states_residual", first_hidden_states_residual)
             del first_hidden_states_residual
 
             hidden_states, hidden_states_residual = self.call_remaining_transformer_blocks(
@@ -284,7 +284,7 @@ class SanaCachedTransformerBlocks(nn.Module):
                 post_patch_height=post_patch_height,
                 post_patch_width=post_patch_width,
             )
-            set_buffer("hidden_states_residual", hidden_states_residual)
+            set_buffer("multi_hidden_states_residual", hidden_states_residual)
         torch._dynamo.graph_break()
 
         return hidden_states
@@ -390,19 +390,18 @@ class FluxCachedTransformerBlocks(nn.Module):
         original_dtype = hidden_states.dtype
         original_device = hidden_states.device
 
-        hidden_states = hidden_states.to(self.dtype).to(self.device)
-        encoder_hidden_states = encoder_hidden_states.to(self.dtype).to(self.device)
-        temb = temb.to(self.dtype).to(self.device)
-        image_rotary_emb = image_rotary_emb.to(self.device)
+        hidden_states = hidden_states.to(self.dtype).to(original_device)
+        encoder_hidden_states = encoder_hidden_states.to(self.dtype).to(original_device)
+        temb = temb.to(self.dtype).to(original_device)
+        image_rotary_emb = image_rotary_emb.to(original_device)
 
         if controlnet_block_samples is not None:
-
             controlnet_block_samples = (
-                torch.stack(controlnet_block_samples).to(self.device) if len(controlnet_block_samples) > 0 else None
+                torch.stack(controlnet_block_samples).to(original_device) if len(controlnet_block_samples) > 0 else None
             )
-        if controlnet_single_block_samples is not None and len(controlnet_single_block_samples) > 0:
+        if controlnet_single_block_samples is not None:
             controlnet_single_block_samples = (
-                torch.stack(controlnet_single_block_samples).to(self.device)
+                torch.stack(controlnet_single_block_samples).to(original_device)
                 if len(controlnet_single_block_samples) > 0
                 else None
             )
