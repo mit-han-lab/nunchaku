@@ -22,7 +22,7 @@ docker run --rm \
     cd /nunchaku && \
     rm -rf build && \
     gcc --version && g++ --version && \
-    ${PYTHON_ROOT_PATH}/bin/pip install --pre --no-cache-dir torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} --index-url https://download.pytorch.org/whl/nightly/cu${CUDA_VERSION//.} && \
+    ${PYTHON_ROOT_PATH}/bin/pip install --pre --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu${CUDA_VERSION//.} && \
     ${PYTHON_ROOT_PATH}/bin/pip install build ninja wheel setuptools && \
     export NUNCHAKU_INSTALL_MODE=ALL && \
     export NUNCHAKU_BUILD_WHEELS=1 && \
