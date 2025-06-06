@@ -778,6 +778,8 @@ std::tuple<Tensor, Tensor> JointTransformerBlock::forward(Tensor hidden_states,
 
 FluxModel::FluxModel(bool use_fp4, bool offload, Tensor::ScalarType dtype, Device device)
     : dtype(dtype), offload(offload) {
+    CUDADeviceContext model_construction_ctx(device.idx);
+
     for (int i = 0; i < 19; i++) {
         transformer_blocks.push_back(
             std::make_unique<JointTransformerBlock>(3072, 24, 3072, false, use_fp4, dtype, device));
@@ -840,7 +842,7 @@ Tensor FluxModel::forward(Tensor hidden_states,
                 Tensor cpu_input = hidden_states.copy(Device::cpu());
                 pybind11::gil_scoped_acquire gil;
                 Tensor cpu_output = residual_callback(cpu_input);
-                Tensor residual   = cpu_output.copy(Device::cuda());
+                Tensor residual   = cpu_output.copy(hidden_states.device());
                 hidden_states     = kernels::add(hidden_states, residual);
             }
         } else {
@@ -878,7 +880,7 @@ Tensor FluxModel::forward(Tensor hidden_states,
                 Tensor cpu_input      = callback_input.copy(Device::cpu());
                 pybind11::gil_scoped_acquire gil;
                 Tensor cpu_output = residual_callback(cpu_input);
-                Tensor residual   = cpu_output.copy(Device::cuda());
+                Tensor residual   = cpu_output.copy(hidden_states.device());
                 auto slice        = hidden_states.slice(1, txt_tokens, txt_tokens + img_tokens);
                 slice             = kernels::add(slice, residual);
                 hidden_states.slice(1, txt_tokens, txt_tokens + img_tokens).copy_(slice);
