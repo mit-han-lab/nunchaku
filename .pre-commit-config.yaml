@@ -58,3 +58,13 @@ repos:
     hooks:
       - id: mdformat
         name: (Markdown) Format docs with mdformat
+  - repo: https://github.com/PyCQA/doc8
+    rev: v2.0.0
+    hooks:
+      - id: doc8
+        additional_dependencies: []
+  - repo: https://github.com/rstcheck/rstcheck
+    rev: main # should be replaced with the current verison
+    hooks:
+      - id: rstcheck
+        additional_dependencies: ['rstcheck[sphinx,toml]']
